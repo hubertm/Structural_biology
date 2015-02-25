@@ -17,31 +17,49 @@ Most of the data we are not interested in, and the first thing to do is to throw
 
 This is done with **in a shell terminal** with the command
 
-cut -d ',' -f 7,8,15,16,23,24,31,32,39,40,47,48,55,56,63,64,71,72,79,80,87,88,95,96,103,104,111,112,119,120,127,128,135,136,143,144,151,152,159,160,167,168,175,176,183,184,191,192,199,200,207,208,215,216,223,224,231,232,239,240,247,248,255,256 Hubert1.csv > toto.csv
+cut -d ',' -f 3,4,7,8,11,12,15,16,19,20,23,24,27,28,31,32,35,36,39,40,43,44,47,48,51,52,55,56,59,60,63,64,67,68,71,72,75,76,79,80,83,84 150220_Rt-1-1_S200_Increase_diff_detergents.csv > toto.csv
 
-Here the *looong* list of columns to keep was generated with a *for* loop in R, and a quick manual post-treatment in TextWrangler to replace all spaces between number by commas.
+
+Here the *looong* list of columns to keep was generated with a *for* loop in R.
 
 ```{r}
 liste = NULL
-for (n in 1:32)
+for (n in 1:20)
 {
-  liste[2*n-1] <- 8*n-1
-  liste[2*n] <- 8*n
+   liste[2*n-1] <- 4*n-1
+   liste[2*n] <- 4*n
 }
-liste
+cat (liste, sep=", ")
 ```
 
 It's not done yet. The data is incomplete, which means there are missing values for some columns, especially at the end of the file (15282 lines in *Hubert1.cvs*). And it has two crappy lines at the top, a header that R does not easily read.
 
 So we remove the first 500 lines, and the last 5000 ones, using the shell terminal. Don't ask me how these two command works, I found them on the web. The number of lines to remove is an arbitrary choice, here I looked at the end of the file removing more and more lines until I saw no more missing values (they appear as multiples commas). Note that this tedious part can be skipped if you are clever enough to overlay the curves in Chromelab and then zoom to a *good* zoom and use the option to save only the visible data.
 
-sed -i -e 1,500d toto.csv 
-sed -e :a -e '$d;N;2,5000ba' -e 'P;D' toto.csv > tmpfile ; mv tmpfile toto.csv
+#In BASH:
+------
+sed -n 1p toto.csv>line1
+sed -n 2p toto.csv>line2
+for i in {1..20}
+do
+cut -d ',' -f $((i*4)) line1 | tr '\n' ',' >>processed.csv
+cut -d ',' -f $((i*4)) line2 | tr '\n' ',' >>processed.csv
+done
+rm line1
+rm line2
 
-You can check that you actually removed 5500 lines (I get 9782)
+sed -i -e 1,2d toto.csv
+#-i replaces the original file -e adds the script to the commands to be executed
+#The command removes the first 2 lines
 
-cat toto.cvs | wc -l
-
+sed -e :a -e '$d;N;2,5ba' -e 'P;D' toto.csv > tmpfile ; mv tmpfile toto.csv
+#Removes the last 5 lines
+cat toto.csv>>processed.csv
+rm toto.csv
+#To check the number of the lines (Bash)
+------
+wc -l toto.cvs 
+------
 
 ## Import of the data and data structure
 
@@ -69,7 +87,7 @@ plot(fluo[,1],fluo[,2],type="l",col="green")
 As we need a function to calculate the area under the curve that is not installed by default in R, let's load the library MESS that contains the function `auc` (Area Under Curve). If you're never used this library it first needs to be installed with the function
 
 ```{r,eval=FALSE}
-install.Packages("MESS")
+install.packages("MESS")
 ```
 
 ```{r}
