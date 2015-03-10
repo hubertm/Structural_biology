@@ -7,8 +7,12 @@ SEC<-function (time, intensity, range = list(start, stop), color = "blue",
   if (length(color) != 1 & length(color) != length(range$start)) 
     stop("color vector length must be 1 or equal to the vectors in the range list")
   intensitybaseline<-intensity-mean(intensity[time<5])
+  SECsmoothed<-lowess(time, intensitybaseline, f=0.001)
+  x<-unlist(SECsmoothed[1])
+  y<-unlist(SECsmoothed[2])
   plot(time, intensitybaseline, type = "l", ylim = ylim, xlab = xlab, 
        ylab = ylab, las = las, ...)
+  points(time[SECpeaks[,2]], SECpeaks[,1], col="red", pch=20)
   retentionTime <- vector(mode = "numeric", length = length(range$start))
   peakArea <- vector(mode = "numeric", length = length(range$start))
   maxIntensity <- vector(mode = "numeric", length = length(range$start))
@@ -34,4 +38,3 @@ SEC<-function (time, intensity, range = list(start, stop), color = "blue",
   }
   return(data.frame(retentionTime, peakArea, maxIntensity))
 }
-

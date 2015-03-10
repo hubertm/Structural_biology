@@ -5,10 +5,6 @@ output: html_document
 
 This tutorial explains how to use R to analyse FSEC / tFSEC curves. The same analysis can be done manually using Chromelab - and depending on the number this could even be shorter! Also, *looking* at the shapes of the chromatograms is an obvious advantage of manual treatment over scripted treatment. Still using scripts and a programmation language will have some interest for repetitive experiments when peaks are well-defined.
 
-The idea is to get a number that reflects the amount of protein present in the correct oligomeric state. Following the methodology used in Gouaux papers, this number is either the height of or the area under the peak of the correct oligomeric form
-
-The tutorial uses a set of 32 runs kindly provided by Hubert. The protein is a NTT-GFP fusion injected on a Superdex 200 column of 24 mL. The peak of interest appears to elute between 12 and 13 mL, which are thus taken as the boundaries for the integration.
-
 ## Foreplays: export data and cleansing of the header
 
 On the machine’s computer, open simultaneously the runs in Chromelab. *Do not* play with the visible curves and export in cvs format. If you process a lot of runs you're likely to obtain a huge file. Here the file cointaining the 32 runs weight about 50 Mo. Alternatively, you can choose to untick all curves but the fluo ones (that means 96 unticking+scrolling in this case... awful, but can be quick if you work with just a few runs).
@@ -36,17 +32,20 @@ It's not done yet. The data is incomplete, which means there are missing values 
 
 So we remove the first 500 lines, and the last 5000 ones, using the shell terminal. Don't ask me how these two command works, I found them on the web. The number of lines to remove is an arbitrary choice, here I looked at the end of the file removing more and more lines until I saw no more missing values (they appear as multiples commas). Note that this tedious part can be skipped if you are clever enough to overlay the curves in Chromelab and then zoom to a *good* zoom and use the option to save only the visible data.
 
-#In BASH:
-------
+###In BASH  
+#####Under Linux at least it works. Mac OS X uses a different flavour of sed and has a different syntax):
+~~~~~~~~~~
 sed -n 1p toto.csv>line1
-sed -n 2p toto.csv>line2
 for i in {1..20}
 do
-cut -d ',' -f $((i*4)) line1 | tr '\n' ',' >>processed.csv
-cut -d ',' -f $((i*4)) line2 | tr '\n' ',' >>processed.csv
+cut -d ',' -f $((i*2)) line1 >>tmp.csv
+echo $i >>tmp.csv
 done
+sed -i 's/\s//g' tmp.csv 
 rm line1
-rm line2
+#remove the newlines
+sed ':a;N;$!ba;s/\n/,/g' tmp1.csv > processed.csv
+rm tmp*
 
 sed -i -e 1,2d toto.csv
 #-i replaces the original file -e adds the script to the commands to be executed
@@ -59,7 +58,7 @@ rm toto.csv
 #To check the number of the lines (Bash)
 ------
 wc -l toto.cvs 
-------
+~~~~~~~~~~
 
 ## Import of the data and data structure
 
@@ -69,26 +68,15 @@ Now you can read in R the .csv file
 fluo=read.csv("toto.csv")
 ```
 
-The variable fluo is a kind of table. It contains `2n` sub-variables that are the volumes and fluorescence values for each run, with here *n=32*. It contains 9781 observations for each variable (yes one is missing, it reads the first line as the column names...). In R studio you can see the structure of the variable on the top right panel. In the console, you can access to one subvariable using its column number starting from 1, e.g. 5 is the volume for run 3, 6 is the fluo for run 3.
-
-```{r,eval=FALSE}
-fluo[,5]
-fluo[,6]
-```
-
-And have a look at one of the curves, here the first one with the volumes for sample 1
-
-```{r}
-plot(fluo[,1],fluo[,2],type="l",col="green")
-```
+The variable fluo is a kind of table. It contains `2n` sub-variables that are the volumes and fluorescence values for each run. In R studio you can see the structure of the variable on the top right panel. In the console, you can access to one subvariable using its column number starting from 1, e.g. 5 is the volume for run 3, 6 is the fluo for run 3.
 
 ## Peak integration and baseline substraction
 
 As we need a function to calculate the area under the curve that is not installed by default in R, let's load the library MESS that contains the function `auc` (Area Under Curve). If you're never used this library it first needs to be installed with the function
 
-```{r,eval=FALSE}
-install.packages("MESS")
-```
+#```{r,eval=FALSE}
+#install.packages("MESS")
+#```
 
 ```{r}
 library("MESS")
@@ -126,10 +114,13 @@ for (n in 1:(length(fluo)/2) )
 
 Now if you replot the curve for the first sample, you can see the baseline has gone from about 100 to about 0
 
-```{r}
-plot(fluo[,1],fluo[,2],type="l")
+```{r, echo=TRUE}
+for (n in 1:(length(fluo)/2) )
+  {
+  plot(fluo[,2*n-1],fluo[,2*n],type="l",col="green", main = names(fluo[n*2-1]), xlab = "ml", ylab = "mV")
+  }
 ```
-
+#The comma in the plot before the index of what is to be plotted is need (plot(fluo[,2*n-1]) as fluo is a data.frame but plot wants a vector. One can also transpose it to plot things.
 ## Construction of the comparison plot for all runs
 
 Let's create a new vector of *n* values (the number of runs) containing the integrated values for each run. This is done once again with a *for* loop.
@@ -159,5 +150,10 @@ for (n in 1:(length(fluo)/2) )
   height[n] <- max(fluo[,2*n][fluo[,2*n-1]>12 & fluo[,2*n-1]<13])
 }
 barplot(height)
+```
+ADDITION
+read.csv reads the data as character. This will transform it into the type double
+```{r}
+test<-data.matrix(fluo[1:2])
 ```
 
