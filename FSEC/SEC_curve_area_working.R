@@ -1,4 +1,7 @@
-# HM 150330 v 0.01
+## HM 150330 v 0.01
+## In order to be able to pass arguments from the terminal
+args <- commandArgs(TRUE)
+
 library("pracma")
 library("KernSmooth")
 ## Function I found online which allows me to return a vector of values
@@ -17,33 +20,34 @@ speciallist <- structure(NA,class="result")
 SEC<-function (time, intensity,  color = "blue",
                ylab = "intensity", ylim = c(0,1000), las = 0, plotname="SECrun", peakestimate = 13, usefulrangeforpeaks=c(5,18), producepdf=TRUE,...)
 {
+      producepdf=as.logical(producepdf)
       if (isTRUE(producepdf)){
             pdf(file=paste(plotname,".pdf",sep = "")) 
-      }    
+      } 
       intensitybaseline<-intensity-mean(intensity[time<5])
       ylim[2]<-(max(intensitybaseline)*1.1)
-      # lowess is one way of fitting the polynomial seems to be a bit better with close peaks
-      #####if peaks are not detected (signal overload) drop this value to f=0.01
-      #SECsmoothed<-lowess(time, intensitybaseline, f=0.01)
+      ## lowess is one way of fitting the polynomial seems to be a bit better with close peaks
+      ## if peaks are not detected (signal overload) drop this value to f=0.01
+      ## SECsmoothed<-lowess(time, intensitybaseline, f=0.01)
       SECsmoothed<-locpoly(time, intensitybaseline, bandwidth=0.025)
       ## Get the 2nd derivative of the smoothed curve, smooth more to get less peaks
       SECpeaks<-findpeaks(SECsmoothed$y, threshold = 5)
-      
-      smoothed2ndderv<-locpoly(SECsmoothed$x,SECsmoothed$y, bandwidth=0.1, drv=2,range.x = usefulrangeforpeaks)
-      seconddervpeaks<-findpeaks(smoothed2ndderv$y, threshold=10)
-      turningpoints<-vector(length=length(seconddervpeaks[,2]))
-      for (h in 1:length(seconddervpeaks[,2])){
-            turningpoints[h]<- intensitybaseline[which(abs(time-smoothed2ndderv$x[seconddervpeaks[,2][h]])==min(abs(time-smoothed2ndderv$x[seconddervpeaks[,2][h]])))]
-      }
+      ## Generates the 2nd derivative of the curve and marks the points
+      #smoothed2ndderv<-locpoly(SECsmoothed$x,SECsmoothed$y, bandwidth=0.1, drv=2,range.x = usefulrangeforpeaks)
+      #seconddervpeaks<-findpeaks(smoothed2ndderv$y, threshold=10)
+      #turningpoints<-vector(length=length(seconddervpeaks[,2]))
+      #for (h in 1:length(seconddervpeaks[,2])){
+      #      turningpoints[h]<- intensitybaseline[which(abs(time-smoothed2ndderv$x[seconddervpeaks[,2][h]])==min(abs(time-smoothed2ndderv$x[seconddervpeaks[,2][h]])))]
+      #}
       
       ##get the index of the closest peak to be used in the next step but also later
       closestpeakestimateindex<-which.min(abs(SECsmoothed$x[SECpeaks[,2]]-peakestimate))
       ## Write the peak retention time to peakestimate
       calpeakestimate<-as.numeric(SECsmoothed$x[SECpeaks[closestpeakestimateindex,2]])
       
-      ## Critical Parameter
+      ### ------------- Critical Parameter ------------- ###
       ## CHECK if needs to be changed as this assumes a peak between 9 and 14!
-      if (calpeakestimate<9 | calpeakestimate>14){
+      if (calpeakestimate<9 | calpeakestimate>15){
             print("The estimated peak is outside the useful limits. Stopping")
             print(calpeakestimate)
             plot(time, intensitybaseline, type = "l", ylim = ylim, ylab = ylab, las = las, main = plotname)
@@ -58,6 +62,9 @@ SEC<-function (time, intensity,  color = "blue",
             leftpeak<-as.numeric(SECsmoothed$x[SECpeaks[(closestpeakestimateindex-1),2]])
             rangestart<-time[time<calpeakestimate & time>leftpeak][which.min(intensity[time<calpeakestimate & time>leftpeak])]
       }
+      ## Otherwise sets the peak between -2 and +2 ml of the calculated peak
+      ### ------------- Critical Parameter ------------- ###
+      ## If the peak should be wider or smaller this parameter has to be changed (the 2 at the end of the line)
       else{
             rangestart<-as.numeric(which.min(intensity[time<calpeakestimate & time>(calpeakestimate-2)]))
       }
@@ -82,8 +89,7 @@ SEC<-function (time, intensity,  color = "blue",
       plot(time, intensitybaseline, type = "l", ylim = ylim, xlab = paste("Retention volume =", retentionTime, "kDa= ",estsize_kDa),
            ylab = ylab, las = las, main = plotname)
       abline(v=SECsmoothed$x[SECpeaks[,2]])  ## Shows the positions of the detected peaks
-      #lines(SECsmoothed$x, SECsmoothed$y,type='l', col="red")
-      points(smoothed2ndderv$x[seconddervpeaks[,2]],turningpoints , col="blue", pch=20)
+      #points(smoothed2ndderv$x[seconddervpeaks[,2]],turningpoints , col="blue", pch=20)
       polygonx=c(rangestart,peakTime,rangestop)
       polygony=c(0,peakIntensity,0)
       peakColor <- color
@@ -106,10 +112,27 @@ RpeakArea <- vector(mode = "numeric")
 RmaxIntensity <- vector(mode = "numeric")
 Restsize_kDa <- vector(mode = "numeric")
 Rplotname <- vector(mode = "numeric")
-for (i in 1:(length(fluo)/2)){
-#for (i in 1:2){      
+for (i in 1:(length(fluo)/2)){     
       time<-fluo[,2*i-1]
       intensity<-fluo[,2*i]
       ## The R at the beginning of the variable was added to indicate the (R)esult and to avoid confusion
-      speciallist[RretentionTime[i], RpeakArea[i], RmaxIntensity[i], Restsize_kDa[i],Rplotname[i]]<-SEC(time,intensity, plotname = paste("Run ",i), producepdf=FALSE)
+      speciallist[RretentionTime[i], RpeakArea[i], RmaxIntensity[i], Restsize_kDa[i],Rplotname[i]]<-SEC(time,intensity, plotname = paste("Run ",i), producepdf=args)
 }
+## In order to remove the NA values of the curves that didn't give a result
+ind<-which(is.na(RmaxIntensity))
+RmaxIntensity[ind]<-0
+RmaxIntensity<-as.numeric(RmaxIntensity)
+
+ind<-which(is.na(RretentionTime))
+RretentionTime[ind]<-0
+RretentionTime<-as.numeric(RretentionTime)
+
+ind<-which(is.na(RpeakArea))
+RpeakArea[ind]<-0
+RpeakArea<-as.numeric(RpeakArea)
+##Take a sequence of vectors and combine them as the rows of a matrix
+result<-rbind(RpeakArea,RmaxIntensity)
+print('Peakarea= blue, MaxIntensity=red')
+pdf('barplotAREAmaxINTENSITY.pdf')
+barplot(result, names.arg = RretentionTime,las=2,horiz = TRUE,col=c("darkblue","red"),beside=TRUE)
+dev.off()
