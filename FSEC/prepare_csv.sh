@@ -4,7 +4,8 @@
 if [ ! -f "$1" ]
 then
     echo "File not found!"
-    exit
+    echo "Please specify a file"    
+exit
 else
 echo "Processing $1 ...."
 fi
