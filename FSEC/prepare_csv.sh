@@ -4,7 +4,8 @@
 if [ ! -f "$1" ]
 then
     echo "File not found!"
-    echo "Please specify a file"    
+    echo "To run the programm please specify a csv file containing the SEC data"
+    echo "Running instructions: "    
 exit
 else
 echo "Processing $1 ...."

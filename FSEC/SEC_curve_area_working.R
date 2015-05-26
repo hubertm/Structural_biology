@@ -18,20 +18,20 @@ speciallist <- structure(NA,class="result")
 }
 
 SEC<-function (time, intensity,  color = "blue",
-               ylab = "intensity", ylim = c(0,1000), las = 0, plotname="SECrun", peakestimate = 13, usefulrangeforpeaks=c(5,18), producepdf=TRUE,...)
+               ylab = "intensity", ylim = c(0,1000), las = 0, plotname="SECrun", peakestimate = 12.2, usefulrangeforpeaks=c(5,18), producepdf=TRUE,...)
 {
       producepdf=as.logical(producepdf)
       if (isTRUE(producepdf)){
             pdf(file=paste(plotname,".pdf",sep = "")) 
       } 
       intensitybaseline<-intensity-mean(intensity[time<5])
-      ylim[2]<-(max(intensitybaseline)*1.1)
+      ylim<-c(min(intensitybaseline),max(intensitybaseline)*1.1)
       ## lowess is one way of fitting the polynomial seems to be a bit better with close peaks
       ## if peaks are not detected (signal overload) drop this value to f=0.01
       ## SECsmoothed<-lowess(time, intensitybaseline, f=0.01)
       SECsmoothed<-locpoly(time, intensitybaseline, bandwidth=0.025)
       ## Get the 2nd derivative of the smoothed curve, smooth more to get less peaks
-      SECpeaks<-findpeaks(SECsmoothed$y, threshold = 5)
+      SECpeaks<-findpeaks(SECsmoothed$y, threshold = 2)
       ## Generates the 2nd derivative of the curve and marks the points
       #smoothed2ndderv<-locpoly(SECsmoothed$x,SECsmoothed$y, bandwidth=0.1, drv=2,range.x = usefulrangeforpeaks)
       #seconddervpeaks<-findpeaks(smoothed2ndderv$y, threshold=10)
@@ -44,10 +44,9 @@ SEC<-function (time, intensity,  color = "blue",
       closestpeakestimateindex<-which.min(abs(SECsmoothed$x[SECpeaks[,2]]-peakestimate))
       ## Write the peak retention time to peakestimate
       calpeakestimate<-as.numeric(SECsmoothed$x[SECpeaks[closestpeakestimateindex,2]])
-      
       ### ------------- Critical Parameter ------------- ###
       ## CHECK if needs to be changed as this assumes a peak between 9 and 14!
-      if (calpeakestimate<9 | calpeakestimate>15){
+      if (calpeakestimate<11 | calpeakestimate>16){
             print("The estimated peak is outside the useful limits. Stopping")
             print(calpeakestimate)
             plot(time, intensitybaseline, type = "l", ylim = ylim, ylab = ylab, las = las, main = plotname)
@@ -66,7 +65,7 @@ SEC<-function (time, intensity,  color = "blue",
       ### ------------- Critical Parameter ------------- ###
       ## If the peak should be wider or smaller this parameter has to be changed (the 2 at the end of the line)
       else{
-            rangestart<-as.numeric(which.min(intensity[time<calpeakestimate & time>(calpeakestimate-2)]))
+            rangestart<-time[time<calpeakestimate & time>(calpeakestimate-2)][which.min(intensity[time<calpeakestimate & time>(calpeakestimate-2)])]
       }
       rangestop<-(calpeakestimate+(calpeakestimate-rangestart))
       
@@ -74,6 +73,9 @@ SEC<-function (time, intensity,  color = "blue",
       peakArea <- vector(mode = "numeric", length = length(rangestart))
       maxIntensity <- vector(mode = "numeric", length = length(rangestart))
       peakTime <- time[time >= rangestart & time <= rangestop]
+      #range to search for the maximum Intensity of the selected peak
+      MaxIntensitySelPeakRange<- intensitybaseline[time >= (calpeakestimate-0.1) & time <= (calpeakestimate+0.1)]
+      MaxIntensitySelPeakTimeRange<- time[time >= (calpeakestimate-0.1) & time <= (calpeakestimate+0.1)]
       peakIntensity <- intensitybaseline[time >= rangestart & time <= rangestop]
       n <- length(peakTime)-1
       x <- vector(mode = "numeric", length = n)
@@ -81,7 +83,7 @@ SEC<-function (time, intensity,  color = "blue",
             x[j] <- (((peakIntensity[j]+peakIntensity[j+1])/2) * (peakTime[j+1]-peakTime[j]))
       }
       peakArea <- round(abs(sum(x)), digits=2)
-      retentionTime <- round(peakTime[which.max(peakIntensity)], digits=2)
+      retentionTime <- round(MaxIntensitySelPeakTimeRange[which.max(MaxIntensitySelPeakRange)], digits=2)
       maxIntensity <- round(max(peakIntensity), digits=2)
       estsize_kDa<-round(exp((calpeakestimate-38.245)/-4.8975), digits = 1) ##estimate the size based on the S200 calibration 31/1/2015
             
